@@ -1,0 +1,6 @@
+@echo off
+echo 正在生成图标...
+start "" "generate_icons.html"
+echo 请等待浏览器打开并下载图标...
+echo 下载完成后，请将图标文件移动到 icons 文件夹中
+pause 
