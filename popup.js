@@ -24,10 +24,14 @@ function formatDuration(ms) {
 document.addEventListener('DOMContentLoaded', function() {
   const collectBtn = document.getElementById('collectBtn');
   const stopBtn = document.getElementById('stopBtn');
-  const downloadBtn = document.getElementById('downloadBtn');
+  const downloadJsonBtn = document.getElementById('downloadJsonBtn');
+  const downloadFullBtn = document.getElementById('downloadFullBtn');
   const restartBtn = document.getElementById('restartBtn');
   const statusDiv = document.getElementById('status');
   const concurrentInput = document.getElementById('concurrentInput');
+  const progressContainer = document.getElementById('progressContainer');
+  const progressFill = document.getElementById('progressFill');
+  const progressText = document.getElementById('progressText');
 
   // 限制并发数输入范围
   concurrentInput.addEventListener('change', () => {
@@ -55,7 +59,8 @@ document.addEventListener('DOMContentLoaded', function() {
       console.log('开始采集按钮被点击');
       collectBtn.disabled = true;
       stopBtn.disabled = false;
-      downloadBtn.disabled = true;
+      downloadJsonBtn.disabled = true;
+      downloadFullBtn.disabled = true;
       statusDiv.textContent = '正在采集游戏数据...';
       
       const concurrentTabs = parseInt(concurrentInput.value);
@@ -86,32 +91,34 @@ document.addEventListener('DOMContentLoaded', function() {
     statusDiv.textContent = '采集已停止';
   });
 
-  // 下载按钮点击事件
-  downloadBtn.addEventListener('click', async () => {
+  // 更新进度条
+  function updateProgress(percent, text) {
+    progressContainer.style.display = 'block';
+    progressFill.style.width = `${percent}%`;
+    progressText.textContent = text;
+  }
+
+  // 隐藏进度条
+  function hideProgress() {
+    progressContainer.style.display = 'none';
+    progressFill.style.width = '0%';
+    progressText.textContent = '准备下载...';
+  }
+
+  // 下载 JSON 数据
+  downloadJsonBtn.addEventListener('click', async () => {
     try {
-      statusDiv.textContent = '正在准备下载...';
-      downloadBtn.disabled = true;
+      statusDiv.textContent = '正在准备下载 JSON 数据...';
+      downloadJsonBtn.disabled = true;
+      downloadFullBtn.disabled = true;
       
       const response = await chrome.runtime.sendMessage({ action: 'getProgress' });
       console.log('获取到的数据:', response);
 
-      if (!response) {
-        throw new Error('未能获取数据');
-      }
-      if (!response.collectedGames) {
-        throw new Error('数据格式错误：没有 collectedGames');
-      }
-      if (response.collectedGames.length === 0) {
-        if (response.isCollecting) {
-          throw new Error('正在采集中，暂无游戏数据，请等待采集完成');
-        } else if (response.progress.current > 0) {
-          throw new Error('采集已完成但未获取到有效数据，请重试');
-        } else {
-          throw new Error('没有已采集的游戏数据，请先开始采集');
-        }
+      if (!response || !response.collectedGames || response.collectedGames.length === 0) {
+        throw new Error('没有可下载的游戏数据');
       }
 
-      const durationText = response.duration ? `\n总耗时: ${formatDuration(response.duration)}` : '';
       const metadata = {
         totalGames: response.collectedGames.length,
         collectionDate: new Date().toISOString(),
@@ -119,72 +126,117 @@ document.addEventListener('DOMContentLoaded', function() {
         durationFormatted: formatDuration(response.duration)
       };
 
-      // 将元数据和游戏数据一起保存
       const dataToSave = {
         metadata,
         games: response.collectedGames
       };
 
-      statusDiv.textContent = '正在创建ZIP文件...';
+      const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: 'application/json' });
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       
-      // 创建ZIP文件
+      await chrome.downloads.download({
+        url: URL.createObjectURL(blob),
+        filename: `html5games_data_${timestamp}.json`,
+        saveAs: true
+      });
+
+      statusDiv.textContent = 'JSON 数据下载完成！';
+    } catch (error) {
+      console.error('下载出错：', error);
+      statusDiv.textContent = '下载出错：' + error.message;
+    } finally {
+      downloadJsonBtn.disabled = false;
+      downloadFullBtn.disabled = false;
+      hideProgress();
+    }
+  });
+
+  // 下载完整数据包
+  downloadFullBtn.addEventListener('click', async () => {
+    try {
+      statusDiv.textContent = '正在准备下载完整数据包...';
+      downloadJsonBtn.disabled = true;
+      downloadFullBtn.disabled = true;
+      
+      const response = await chrome.runtime.sendMessage({ action: 'getProgress' });
+      if (!response || !response.collectedGames || response.collectedGames.length === 0) {
+        throw new Error('没有可下载的游戏数据');
+      }
+
+      const metadata = {
+        totalGames: response.collectedGames.length,
+        collectionDate: new Date().toISOString(),
+        duration: response.duration,
+        durationFormatted: formatDuration(response.duration)
+      };
+
+      const dataToSave = {
+        metadata,
+        games: response.collectedGames
+      };
+
+      updateProgress(0, '正在创建 ZIP 文件...');
       const zip = new JSZip();
-      
-      // 添加JSON数据
       zip.file('games.json', JSON.stringify(dataToSave, null, 2));
-      console.log('已添加JSON数据');
       
-      // 创建icons文件夹
       const iconsFolder = zip.folder('icons');
+      const totalIcons = response.collectedGames.length * 3; // 每个游戏3个图标
+      let processedIcons = 0;
       
-      // 下载所有图标
       for (const game of response.collectedGames) {
         if (!game.name) continue;
         
         const gameFolderName = game.name.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '_');
-        console.log('处理游戏:', gameFolderName);
         const gameFolder = iconsFolder.folder(gameFolderName);
         
         try {
           // 下载大图标
           if (game.icons.large) {
-            console.log('下载大图标:', game.icons.large);
             const largeResponse = await fetch(game.icons.large);
             if (largeResponse.ok) {
               const largeBlob = await largeResponse.blob();
               gameFolder.file('large.jpg', largeBlob);
             }
+            processedIcons++;
+            updateProgress(
+              (processedIcons / totalIcons) * 100,
+              `正在下载图标: ${gameFolderName} (${processedIcons}/${totalIcons})`
+            );
           }
           
           // 下载中图标
           if (game.icons.medium) {
-            console.log('下载中图标:', game.icons.medium);
             const mediumResponse = await fetch(game.icons.medium);
             if (mediumResponse.ok) {
               const mediumBlob = await mediumResponse.blob();
               gameFolder.file('medium.jpg', mediumBlob);
             }
+            processedIcons++;
+            updateProgress(
+              (processedIcons / totalIcons) * 100,
+              `正在下载图标: ${gameFolderName} (${processedIcons}/${totalIcons})`
+            );
           }
           
           // 下载小图标
           if (game.icons.small) {
-            console.log('下载小图标:', game.icons.small);
             const smallResponse = await fetch(game.icons.small);
             if (smallResponse.ok) {
               const smallBlob = await smallResponse.blob();
               gameFolder.file('small.jpg', smallBlob);
             }
+            processedIcons++;
+            updateProgress(
+              (processedIcons / totalIcons) * 100,
+              `正在下载图标: ${gameFolderName} (${processedIcons}/${totalIcons})`
+            );
           }
-          
-          statusDiv.textContent = `正在下载图标: ${gameFolderName}`;
         } catch (error) {
           console.error(`下载 ${gameFolderName} 的图标时出错:`, error);
         }
       }
       
-      // 生成ZIP文件
-      console.log('生成ZIP文件');
-      statusDiv.textContent = '正在生成ZIP文件...';
+      updateProgress(100, '正在生成 ZIP 文件...');
       const content = await zip.generateAsync({
         type: 'blob',
         compression: 'DEFLATE',
@@ -193,21 +245,21 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       });
       
-      // 下载ZIP文件
-      console.log('开始下载ZIP文件');
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       await chrome.downloads.download({
         url: URL.createObjectURL(content),
-        filename: `html5games_data_${timestamp}.zip`,
+        filename: `html5games_full_${timestamp}.zip`,
         saveAs: true
       });
-      
-      statusDiv.textContent = `已采集: ${response.collectedGames.length} 个游戏${durationText}`;
+
+      statusDiv.textContent = '完整数据包下载完成！';
     } catch (error) {
-      console.error('下载过程出错:', error);
-      statusDiv.textContent = error.message;
+      console.error('下载出错：', error);
+      statusDiv.textContent = '下载出错：' + error.message;
     } finally {
-      downloadBtn.disabled = false;
+      downloadJsonBtn.disabled = false;
+      downloadFullBtn.disabled = false;
+      hideProgress();
     }
   });
 
@@ -221,7 +273,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // 重置UI状态
         collectBtn.disabled = false;
         stopBtn.disabled = true;
-        downloadBtn.disabled = true;
+        downloadJsonBtn.disabled = true;
+        downloadFullBtn.disabled = true;
         concurrentInput.disabled = false;
         statusDiv.textContent = '准备就绪，请点击采集按钮开始';
         
@@ -260,19 +313,22 @@ document.addEventListener('DOMContentLoaded', function() {
     if (response.isCollecting) {
       collectBtn.disabled = true;
       stopBtn.disabled = false;
-      downloadBtn.disabled = true;
+      downloadJsonBtn.disabled = true;
+      downloadFullBtn.disabled = true;
       concurrentInput.disabled = true;
       statusDiv.textContent = `正在采集: ${response.progress.current}/${response.progress.total}${durationText}`;
     } else if (response.progress.current > 0) {
       collectBtn.disabled = false;
       stopBtn.disabled = true;
-      downloadBtn.disabled = false;
+      downloadJsonBtn.disabled = false;
+      downloadFullBtn.disabled = false;
       concurrentInput.disabled = false;
       statusDiv.textContent = `采集完成: ${response.progress.current} 个游戏${durationText}`;
     } else {
       collectBtn.disabled = false;
       stopBtn.disabled = true;
-      downloadBtn.disabled = response.collectedGames?.length === 0;
+      downloadJsonBtn.disabled = response.collectedGames?.length === 0;
+      downloadFullBtn.disabled = response.collectedGames?.length === 0;
       concurrentInput.disabled = false;
       if (response.collectedGames?.length > 0) {
         statusDiv.textContent = `已采集: ${response.collectedGames.length} 个游戏${durationText}`;
