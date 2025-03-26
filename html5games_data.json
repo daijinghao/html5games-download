@@ -1,0 +1,26 @@
+{
+  "games": [
+    {
+      "name": "Rise Up",
+      "url": "https://html5games.com/Game/Rise-Up/12345",
+      "embedUrl": "https://html5games.com/embed/Rise-Up/12345",
+      "categories": ["Arcade", "Action"],
+      "icons": {
+        "large": "https://picsum.photos/180/180",
+        "medium": "https://picsum.photos/120/120",
+        "small": "https://picsum.photos/60/60"
+      }
+    },
+    {
+      "name": "Color Fill 3D",
+      "url": "https://html5games.com/Game/Color-Fill-3D/67890",
+      "embedUrl": "https://html5games.com/embed/Color-Fill-3D/67890",
+      "categories": ["Puzzle", "3D"],
+      "icons": {
+        "large": "https://picsum.photos/180/180",
+        "medium": "https://picsum.photos/120/120",
+        "small": "https://picsum.photos/60/60"
+      }
+    }
+  ]
+} 
