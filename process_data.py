@@ -69,6 +69,7 @@ def process_data(json_file):
             f.write(f'- 游戏链接：[{game["name"]}]({game["url"]})\n')
             f.write(f'- 嵌入地址：{game["embedUrl"]}\n')
             f.write(f'- 游戏分类：{", ".join(game["categories"])}\n')
+            f.write(f'- 游戏描述：{game["description"]}\n')
             f.write('- 游戏图标：\n')
             for size_key, size in icon_sizes.items():
                 if game['icons'][size_key]:

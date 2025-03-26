@@ -32,17 +32,28 @@
 
 ```
 games/
-├── Puzzle/
-│   └── GameName/
-│       ├── icon_180x180.png
-│       ├── icon_120x120.png
-│       └── icon_60x60.png
-├── Quiz/
-│   └── GameName/
-│       ├── icon_180x180.png
-│       ├── icon_120x120.png
-│       └── icon_60x60.png
-└── games_summary.md
+├── games_summary.md  # 游戏信息汇总文件
+└── 分类目录/        # 按游戏分类组织
+    └── 游戏名称/
+        ├── icon_180x180.png
+        ├── icon_120x120.png
+        └── icon_60x60.png
+```
+
+games_summary.md 文件格式如下：
+```markdown
+# 游戏信息汇总
+
+## 分类名称
+### 游戏名称
+- 游戏链接：[游戏名称](游戏URL)
+- 嵌入地址：游戏嵌入URL
+- 游戏分类：分类1, 分类2
+- 游戏描述：游戏的详细描述文本
+- 游戏图标：
+  - [180x180](分类名称/游戏名称/icon_180x180.png)
+  - [120x120](分类名称/游戏名称/icon_120x120.png)
+  - [60x60](分类名称/游戏名称/icon_60x60.png)
 ```
 
 ## 注意事项
