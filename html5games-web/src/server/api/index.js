@@ -56,7 +56,7 @@ router.post('/collect', async (req, res) => {
         if (!shouldCollect) {
             return res.json({
                 success: true,
-                message: '距离上次采集未超过1小时，跳过采集',
+                message: '已有采集任务在进行中',
                 should_collect: false
             });
         }
@@ -137,10 +137,27 @@ router.get('/download/package', async (req, res) => {
         try {
             await fs.access(filePath);
         } catch (error) {
-            console.error('文件访问失败:', error);
-            return res.status(404).json({
+            console.log('数据包文件不存在，重新发起采集流程');
+            // 更新系统状态为采集中
+            await supabase
+                .from('system_status')
+                .update({ is_collecting: true })
+                .eq('id', 1);
+            
+            // 重新发起采集流程
+            collector.startCollecting()
+                .then(() => {
+                    console.log('重新采集完成');
+                })
+                .catch(error => {
+                    console.error('重新采集失败:', error);
+                });
+
+            // 直接返回采集中的状态
+            return res.status(503).json({
                 success: false,
-                error: '数据包文件不存在'
+                error: '数据采集中',
+                is_collecting: true
             });
         }
 

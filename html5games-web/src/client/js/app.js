@@ -5,8 +5,6 @@ const elements = {
     collectStatus: document.getElementById('collect-status'),
     downloadJson: document.getElementById('download-json'),
     downloadPackage: document.getElementById('download-package'),
-    jsonCount: document.getElementById('json-count'),
-    fullCount: document.getElementById('full-count'),
     lastStart: document.getElementById('last-start'),
     lastEnd: document.getElementById('last-end'),
     lastError: document.getElementById('last-error'),
@@ -166,7 +164,7 @@ async function startCollection() {
         }
 
         if (!result.should_collect) {
-            alert('距离上次采集未超过1小时，暂不需要重新采集');
+            alert(result.message);
         }
     } catch (error) {
         console.error('启动采集失败:', error);
@@ -187,10 +185,41 @@ async function downloadJson() {
 // 下载完整数据包
 async function downloadPackage() {
     try {
-        window.location.href = '/api/download/package';
+        elements.downloadPackage.disabled = true;
+        elements.downloadPackage.classList.add('loading');
+        
+        const response = await fetch('/api/download/package');
+        const contentType = response.headers.get('content-type');
+        
+        if (contentType && contentType.includes('application/json')) {
+            const data = await response.json();
+            if (response.status === 503 && data.is_collecting) {
+                // 数据正在采集中，禁用所有按钮
+                disableDownloadButtons(true);
+                alert('数据采集中，请稍后再试');
+                // 立即更新一次状态
+                await updateStatusPeriodically();
+                return;
+            }
+            throw new Error(data.error || '下载失败');
+        }
+        
+        // 处理文件下载
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `html5games_full_${new Date().toISOString().split('T')[0]}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
     } catch (error) {
         console.error('下载数据包失败:', error);
         alert('下载数据包失败: ' + error.message);
+    } finally {
+        // 检查最新状态来决定是否启用按钮
+        await updateStatusPeriodically();
     }
 }
 

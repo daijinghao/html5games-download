@@ -52,25 +52,51 @@ class GameCollector {
         this.COLLECTION_INTERVAL = 60 * 60 * 1000;
     }
 
-    async shouldCollectData() {
+    // 检查采集状态是否异常（超过一定时间没有更新）
+    async checkStaleCollectionStatus() {
         try {
             const { data, error } = await this.supabase
                 .from('system_status')
-                .select('last_collection_end')
+                .select('is_collecting, last_collection_start')
                 .eq('id', 1)
                 .single();
 
             if (error) throw error;
 
-            // 如果没有上次采集时间，或者距离上次采集超过1小时，则返回 true
-            if (!data || !data.last_collection_end) {
-                return true;
-            }
+            if (data.is_collecting && data.last_collection_start) {
+                const lastStart = new Date(data.last_collection_start).getTime();
+                const now = Date.now();
+                const MAX_COLLECTION_TIME = 30 * 60 * 1000; // 30分钟
 
-            const lastCollectionTime = new Date(data.last_collection_end).getTime();
-            const now = Date.now();
-            
-            return (now - lastCollectionTime) > this.COLLECTION_INTERVAL;
+                // 如果采集时间超过30分钟，认为是异常状态
+                if (now - lastStart > MAX_COLLECTION_TIME) {
+                    console.log('检测到异常的采集状态，重置状态');
+                    await this.updateSystemStatus(false);
+                    return true;
+                }
+            }
+            return false;
+        } catch (error) {
+            console.error('检查采集状态异常失败:', error);
+            return false;
+        }
+    }
+
+    async shouldCollectData() {
+        try {
+            // 先检查是否存在异常状态
+            await this.checkStaleCollectionStatus();
+
+            const { data, error } = await this.supabase
+                .from('system_status')
+                .select('is_collecting')
+                .eq('id', 1)
+                .single();
+
+            if (error) throw error;
+
+            // 只要当前没有采集任务在进行，就可以开始新的采集
+            return !data.is_collecting;
         } catch (error) {
             console.error('检查采集状态失败:', error);
             throw error;
@@ -79,10 +105,10 @@ class GameCollector {
 
     async startCollecting() {
         try {
-            // 检查是否需要采集
+            // 检查是否有采集任务在进行
             const shouldCollect = await this.shouldCollectData();
             if (!shouldCollect) {
-                console.log('距离上次采集未超过1小时，跳过采集');
+                console.log('已有采集任务在进行中');
                 return false;
             }
 
@@ -403,10 +429,39 @@ class GameCollector {
         return linkArray;
     }
 
+    // 添加重试函数
+    async retryFetch(url, options = {}, retries = 3, delay = 2000) {
+        for (let i = 0; i < retries; i++) {
+            try {
+                const response = await fetch(url, options);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response;
+            } catch (error) {
+                if (i === retries - 1) throw error; // 如果是最后一次重试，则抛出错误
+                console.log(`第 ${i + 1} 次请求失败，${delay/1000}秒后重试...`, error.message);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                // 每次重试增加延迟
+                delay *= 1.5;
+            }
+        }
+    }
+
     // 获取游戏详情
     async fetchGameDetails(url) {
         try {
-            const response = await fetch(url);
+            const response = await this.retryFetch(url, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.5',
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache'
+                },
+                timeout: 10000 // 10秒超时
+            });
+            
             const html = await response.text();
             
             // 获取游戏名称 - 从 header 标签内的 h1
@@ -579,29 +634,52 @@ class GameCollector {
         zip.file('games.json', JSON.stringify(games, null, 2));
         this.updateStage('创建数据包', 20);
         
-        // 添加图标
-        const iconsFolder = zip.folder('icons');
-        const totalIcons = games.length;
-        let processedIcons = 0;
+        // 创建 games 文件夹
+        const gamesFolder = zip.folder('games');
+        const totalGames = games.length;
+        let processedGames = 0;
         
         for (const game of games) {
-            if (game.icons) {
-                try {
-                    const iconUrl = game.icons.large || game.icons.medium || game.icons.small;
-                    if (iconUrl) {
-                        const response = await fetch(iconUrl);
-                        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                        const buffer = await response.buffer();
-                        const filename = `${game.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.png`;
-                        iconsFolder.file(filename, buffer);
+            if (!game.name) continue;
+            
+            // 创建游戏专属文件夹，使用游戏名作为文件夹名
+            const gameFolderName = game.name.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '_');
+            const gameFolder = gamesFolder.folder(gameFolderName);
+            
+            try {
+                // 下载所有可用的图标
+                if (game.icons) {
+                    if (game.icons.large) {
+                        const largeResponse = await fetch(game.icons.large);
+                        if (largeResponse.ok) {
+                            const largeBlob = await largeResponse.buffer();
+                            gameFolder.file('large.png', largeBlob);
+                        }
                     }
-                } catch (error) {
-                    console.error(`下载图标失败: ${game.name}`, error);
+                    
+                    if (game.icons.medium) {
+                        const mediumResponse = await fetch(game.icons.medium);
+                        if (mediumResponse.ok) {
+                            const mediumBlob = await mediumResponse.buffer();
+                            gameFolder.file('medium.png', mediumBlob);
+                        }
+                    }
+                    
+                    if (game.icons.small) {
+                        const smallResponse = await fetch(game.icons.small);
+                        if (smallResponse.ok) {
+                            const smallBlob = await smallResponse.buffer();
+                            gameFolder.file('small.png', smallBlob);
+                        }
+                    }
                 }
+            } catch (error) {
+                console.error(`下载 ${game.name} 的图标时出错:`, error);
             }
-            processedIcons++;
+            
+            processedGames++;
             // 更新打包进度（20-90%）
-            this.updateStage('创建数据包', 20 + Math.floor((processedIcons / totalIcons) * 70));
+            this.updateStage('创建数据包', 20 + Math.floor((processedGames / totalGames) * 70));
         }
 
         this.updateStage('创建数据包', 90);
@@ -617,16 +695,8 @@ class GameCollector {
         });
         
         const endTime = Date.now();
-        const duration = (endTime - startTime) / 1000; // 转换为秒
-        const sizeInMB = result.length / (1024 * 1024); // 转换为 MB
+        console.log(`数据包创建完成，耗时: ${(endTime - startTime) / 1000}秒`);
         
-        console.log(`数据包生成完成：
-- 总耗时：${duration.toFixed(2)} 秒
-- 数据大小：${sizeInMB.toFixed(2)} MB
-- 包含游戏：${games.length} 个
-- 平均处理时间：${(duration / games.length).toFixed(2)} 秒/个`);
-        
-        this.updateStage('创建数据包', 100);
         return result;
     }
 
