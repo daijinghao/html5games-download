@@ -71,16 +71,19 @@ button:disabled {
 
 /* 基础样式 */
 :root {
-    --primary-color: #1890ff;
-    --secondary-color: #f5f5f5;
-    --text-color: #333;
-    --border-color: #e8e8e8;
-    --bg-color: #fff;
-    --section-bg: #fff;
-    --label-color: #666;
-    --panel-bg: #fff;
-    --error-color: #ff4d4f;
-    --success-color: #52c41a;
+    --primary-color: #2563eb;
+    --secondary-color: #f3f4f6;
+    --text-color: #1f2937;
+    --border-color: #e5e7eb;
+    --bg-color: #f9fafb;
+    --section-bg: #ffffff;
+    --label-color: #6b7280;
+    --panel-bg: #ffffff;
+    --error-color: #ef4444;
+    --success-color: #22c55e;
+    --header-height: 64px;
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
 }
 
 * {
@@ -95,13 +98,13 @@ body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     background-color: var(--bg-color);
     color: var(--text-color);
-    line-height: 1.5;
+    line-height: 1.6;
 }
 
 .container {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 20px;
+    padding: 2rem;
 }
 
 /* 侧边栏样式 */
@@ -135,40 +138,57 @@ body {
 
 /* 主要内容区域 */
 .main-content {
-    flex: 1;
-    padding: 20px;
+    display: grid;
+    gap: 2rem;
 }
 
 /* 顶部导航 */
 header {
-    text-align: center;
-    margin-bottom: 30px;
+    background: var(--section-bg);
+    border-bottom: 1px solid var(--border-color);
+    padding: 1rem 0;
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow-sm);
 }
 
 header h1 {
-    font-size: 24px;
+    font-size: 1.5rem;
     color: var(--text-color);
-    margin: 0;
-    font-weight: 500;
+    font-weight: 600;
+    text-align: center;
 }
 
 /* 按钮样式 */
 .btn {
-    padding: 8px 16px;
-    border-radius: 4px;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
     border: 1px solid var(--border-color);
-    background: white;
+    background: var(--section-bg);
     color: var(--text-color);
     cursor: pointer;
-    font-size: 14px;
-    display: flex;
+    font-size: 0.875rem;
+    font-weight: 500;
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
-    transition: all 0.3s;
+    gap: 0.5rem;
+    transition: all 0.2s;
 }
 
 .btn:hover {
     background: var(--secondary-color);
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.btn.secondary {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+}
+
+.btn.secondary:hover {
+    background: #1d4ed8;
+    color: white;
 }
 
 /* 状态卡片 */
@@ -204,13 +224,17 @@ header h1 {
 
 /* 进度条样式 */
 .progress-section {
-    margin-top: 20px;
+    background: var(--section-bg);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    margin-top: 1rem;
 }
 
 .progress-container {
-    height: 4px;
+    height: 0.5rem;
     background-color: var(--secondary-color);
-    border-radius: 2px;
+    border-radius: 0.25rem;
     overflow: hidden;
 }
 
@@ -222,9 +246,9 @@ header h1 {
 
 .progress-text {
     text-align: center;
-    margin-top: 8px;
+    margin-top: 0.75rem;
     color: var(--label-color);
-    font-size: 14px;
+    font-size: 0.875rem;
 }
 
 /* 状态面板 */
@@ -238,24 +262,29 @@ header h1 {
 
 .status-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
 }
 
 .status-item {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--secondary-color);
+    border-radius: 0.5rem;
 }
 
 .status-item label {
     color: var(--label-color);
-    font-size: 14px;
+    font-size: 0.875rem;
+    font-weight: 500;
 }
 
 .status-item span {
-    font-size: 14px;
+    font-size: 0.875rem;
     color: var(--text-color);
+    font-weight: 500;
 }
 
 /* 状态指示器 */
@@ -322,13 +351,23 @@ section h2 {
 
 /* 下载按钮区域 */
 .download-section {
-    text-align: center;
+    background: var(--section-bg);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+}
+
+.download-section h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    color: var(--text-color);
 }
 
 .download-buttons {
     display: flex;
-    gap: 15px;
-    justify-content: center;
+    gap: 1rem;
+    flex-wrap: wrap;
 }
 
 .download-count {
@@ -342,8 +381,8 @@ section h2 {
 /* 信息区域 */
 .info-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
 }
 
 /* 页脚 */
@@ -390,19 +429,19 @@ h2 {
 
 /* 下载按钮 loading 效果 */
 .loading-spinner {
-    display: none;
-    width: 16px;
-    height: 16px;
-    margin-left: 8px;
-    border: 2px solid #f3f3f3;
-    border-top: 2px solid #3498db;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid var(--secondary-color);
+    border-top-color: var(--primary-color);
     border-radius: 50%;
     animation: spin 1s linear infinite;
+    display: none;
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .btn[disabled] {
@@ -418,4 +457,89 @@ h2 {
 .status.updating {
     background-color: #3498db;
     color: white;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .container {
+        padding: 1rem;
+    }
+    
+    .status-grid,
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .download-buttons {
+        flex-direction: column;
+    }
+    
+    .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* 头部内容布局 */
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 1rem;
+}
+
+/* 语言选择器样式 */
+.language-selector {
+    position: relative;
+}
+
+.language-selector select {
+    appearance: none;
+    background-color: var(--section-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    padding: 0.5rem 2rem 0.5rem 1rem;
+    font-size: 0.875rem;
+    color: var(--text-color);
+    cursor: pointer;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.language-selector select:hover {
+    border-color: var(--primary-color);
+}
+
+.language-selector select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.language-selector::after {
+    content: '';
+    position: absolute;
+    right: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 5px solid var(--text-color);
+    pointer-events: none;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .header-content {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+
+    .language-selector {
+        margin-bottom: 0.5rem;
+    }
 } 
